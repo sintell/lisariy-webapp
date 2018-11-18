@@ -1,0 +1,16 @@
+{
+    "webApp":{
+        "port": "9182",
+        "shutdownTimout": 10
+    },
+    "db": {
+        "host": "localhost",
+        "port": 5432
+    },
+    "log": {
+        "format": "",
+        "logsPath": "",
+        "alsoLogToStdOut": true,
+        "level": "INFO"
+    }
+}

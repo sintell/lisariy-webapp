@@ -1,0 +1,15 @@
+{
+    "webApp":{
+        "port": "9182",
+        "shutdownTimout": 10
+    },
+    "db": {
+        "host": "localhost",
+        "port": "5432"
+    },
+    "log": {
+        "logsPath": "logs/lisariy-webapp.log",
+        "alsoLogToStdOut": true,
+        "level": "DEBUG"
+    }
+}
