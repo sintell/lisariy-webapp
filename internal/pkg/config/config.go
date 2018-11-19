@@ -15,8 +15,12 @@ type Config struct {
 		ShutdownTimeout time.Duration `json:"shutdownTimeout,omitempty"`
 	} `json:"webApp,omitempty"`
 	DB struct {
-		Host string `json:"host,omitempty"`
-		Port string `json:"port,omitempty"`
+		Host     string `json:"host,omitempty"`
+		Port     string `json:"port,omitempty"`
+		User     string `json:"user,omitempty"`
+		DBName   string `json:"dbName,omitempty"`
+		Password string `json:"password,omitempty"`
+		Debug    bool   `json:"debug,omitempty"`
 	} `json:"db,omitempty"`
 	Log struct {
 		Level           string `json:"level,omitempty"`

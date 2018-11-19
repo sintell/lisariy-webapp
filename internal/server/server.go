@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 type Server struct {
 	cfg *config.Config
 	e   *echo.Echo
+	str *Store
 }
 
 // New creates new instance of webapp server
@@ -31,7 +33,6 @@ func New() *Server {
 // Start internaly starts echo web-server
 // and register all handlers
 func (s *Server) Start(cfg *config.Config) *Server {
-	s.e.Logger.Info("starting server with PID=", os.Getpid(), "on PORT=", cfg.WebApp.Port)
 	s.cfg = cfg
 
 	output, err := getLogWriter(s.cfg)
@@ -41,8 +42,23 @@ func (s *Server) Start(cfg *config.Config) *Server {
 	s.e.Logger.SetLevel(getLogLevel(s.cfg))
 	s.e.Logger.SetOutput(output)
 
+	s.str, err = NewStore(s.cfg, s.e)
+	if err != nil {
+		s.e.Logger.Fatal(err)
+	}
+
 	s.e.Group("api", middleware.RemoveTrailingSlash())
-	s.e.Logger.Fatal(s.e.Start(":" + cfg.WebApp.Port))
+	registerMiddlewares(s.e, s.cfg)
+	registerHandlers(s.e)
+	registerProtectedHandlers(s.e)
+
+	s.e.Logger.Info("starting server with PID=", os.Getpid(), "on PORT=", cfg.WebApp.Port)
+
+	err = s.e.Start(":" + cfg.WebApp.Port)
+	if err != nil && err != http.ErrServerClosed {
+		s.e.Logger.Fatalf("unexpected server crash: %s", err)
+		return nil
+	}
 
 	return s
 }
@@ -53,9 +69,12 @@ func (s *Server) Stop() {
 	ctx, cancel := context.WithTimeout(context.Background(), s.cfg.WebApp.ShutdownTimeout*time.Second)
 	defer cancel()
 	if err := s.e.Shutdown(ctx); err != nil {
-		s.e.Logger.Fatal(err)
+		s.e.Logger.Fatalf("error during webserver shutdown: %s")
 	}
 	<-ctx.Done()
+	if err := s.str.Shutdown(); err != nil {
+		s.e.Logger.Fatalf("error during store shutdown: %s", err)
+	}
 }
 
 // GetLogger allows access to server internall logger
