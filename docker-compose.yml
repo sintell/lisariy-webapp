@@ -1,0 +1,24 @@
+version: '3.2'
+services:
+  app:
+    build:
+      context: .
+      dockerfile: ./deploy/Dockerfile
+    ports:
+      - "9182:9182"
+    volumes:
+      - ./config/prod-config.json:/etc/lisariy-webapp/config/config.json
+      - ./images:/var/lib/lisariy-webapp/images
+
+  db:
+    build: ./db
+    volumes:
+      - ./db/pgdata:/pgdata
+    environment:
+      - POSTGRES_USER=lisariy_webapp
+      - POSTGRES_PASSWORD=docker
+      - PGDATA=/pgdata
+      - POSTGRES_DB=lisariy_main
+
+volumes:
+     pgdata:

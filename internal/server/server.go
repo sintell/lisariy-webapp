@@ -6,11 +6,14 @@ import (
 	"os"
 	"time"
 
-	"github.com/labstack/echo/middleware"
 	"github.com/labstack/gommon/log"
 
 	"github.com/labstack/echo"
 	"github.com/sintell/lisariy-server/internal/pkg/config"
+)
+
+var (
+	pp *PicturesProcessor
 )
 
 // Server wraps echo web server providing convinient methods
@@ -19,6 +22,7 @@ type Server struct {
 	cfg *config.Config
 	e   *echo.Echo
 	str *Store
+	pp  *PicturesProcessor
 }
 
 // New creates new instance of webapp server
@@ -47,7 +51,10 @@ func (s *Server) Start(cfg *config.Config) *Server {
 		s.e.Logger.Fatal(err)
 	}
 
-	s.e.Group("api", middleware.RemoveTrailingSlash())
+	s.pp = NewPicturesProcessor(s.e.Logger)
+	pp = s.pp
+	s.pp.Start()
+
 	registerMiddlewares(s.e, s.cfg)
 	registerHandlers(s.e)
 	registerProtectedHandlers(s.e)
@@ -75,6 +82,7 @@ func (s *Server) Stop() {
 	if err := s.str.Shutdown(); err != nil {
 		s.e.Logger.Fatalf("error during store shutdown: %s", err)
 	}
+	s.pp.Stop()
 }
 
 // GetLogger allows access to server internall logger

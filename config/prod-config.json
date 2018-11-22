@@ -4,16 +4,16 @@
         "shutdownTimout": 10
     },
     "db": {
-        "host": "localhost",
+        "host": "db",
         "port": "5432",
         "user": "lisariy_webapp",
         "dbName": "lisariy_main",
-        "password": ""
+        "password": "docker",
+        "debug": true
     },
     "log": {
-        "format": "",
-        "logsPath": "",
+        "logsPath": "/var/log/lisariy-webapp/lisariy-webapp.log",
         "alsoLogToStdOut": true,
-        "level": "INFO"
+        "level": "DEBUG"
     }
 }
