@@ -141,6 +141,8 @@ func newPictureHandler(c echo.Context) error {
 			ProcessedSrc: path.Join(imagesProcessedSrc, datePath, uuid.NewV4().String()+path.Ext(file.Filename)),
 		}
 
+		c.Logger().Debugf("file header is: %+v", file.Header)
+
 		src, err := file.Open()
 		if err != nil {
 			c.Logger().Errorf("can't read file %s from request, reason: %s", file.Filename, err)
