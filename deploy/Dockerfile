@@ -10,9 +10,10 @@ FROM codechimpio/vips-alpine
 
 RUN adduser -S -D -H -h /app lisariy
 RUN mkdir /var/log/lisariy-webapp
-RUN mkdir -p /etc/lisariy-webapp/config
-RUN mkdir -p /var/lib/lisariy-webapp/images
 RUN chown lisariy /var/log/lisariy-webapp
+RUN mkdir -p /var/lib/lisariy-webapp/images
+RUN chown lisariy /var/lib/lisariy-webapp/images
+RUN mkdir -p /etc/lisariy-webapp/config
 USER lisariy
 COPY --from=builder /build/main /app/
 WORKDIR /app
