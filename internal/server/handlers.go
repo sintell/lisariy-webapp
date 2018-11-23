@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/satori/go.uuid"
@@ -142,6 +143,12 @@ func newPictureHandler(c echo.Context) error {
 		}
 
 		c.Logger().Debugf("file header is: %+v", file.Header)
+
+		if !strings.Contains(file.Header.Get("Content-Type"), "image") {
+			c.Logger().Errorf("file is not an image: %s but an %s", file.Filename, file.Header.Get("Content-Type"))
+			fileErrors[file.Filename] = "file is not an image"
+			continue
+		}
 
 		src, err := file.Open()
 		if err != nil {
