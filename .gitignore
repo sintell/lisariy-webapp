@@ -1,5 +1,6 @@
 .vscode
 build
 logs
-lisariy-webapp
 images
+lisariy-webapp
+!lisariy-webapp/

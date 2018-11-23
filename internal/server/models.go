@@ -46,9 +46,9 @@ type Picture struct {
 	ModelDefaults
 	Title        string    `json:"title,omitempty"`
 	Description  string    `json:"description,omitempty"`
-	Key          uuid.UUID `json:"key,omitempty"`
+	Key          uuid.UUID `json:"-"`
 	Ext          string    `json:"-"`
-	OriginalSrc  string    `json:"originalSrc,omitempty"`
+	OriginalSrc  string    `json:"-"`
 	ThumbnailSrc string    `json:"thumbnailSrc,omitempty"`
 	ProcessedSrc string    `json:"processedSrc,omitempty"`
 	Processed    bool      `json:"-"`
@@ -77,6 +77,10 @@ func (p *Picture) ShowByID(id uint) error {
 
 func (p *Picture) Save() error {
 	return store.db.Save(p).Error
+}
+
+func (p *Picture) Update() error {
+	return store.db.Model(p).Select("title", "description").Updates(p).Error
 }
 
 func (p *Picture) DeleteByID(id uint) error {

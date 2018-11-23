@@ -43,6 +43,7 @@ func registerProtectedHandlers(e *echo.Echo) {
 	protected.Add(http.MethodPost, "/api/logout", logoutHandler).Name = "logout"
 	protected.Add(http.MethodPost, "/api/pictures", newPictureHandler).Name = "newPicture"
 	protected.Add(http.MethodPut, "/api/picture/:id/:action", pictureVisibilityHandler)
+	protected.Add(http.MethodPut, "/api/picture/:id", pictureUpdateHandler)
 	protected.Add(http.MethodDelete, "/api/picture/:id", pictureDeleteHandler)
 }
 
@@ -108,7 +109,7 @@ func pictureHandler(c echo.Context) error {
 
 func newPictureHandler(c echo.Context) error {
 	fileErrors := make(map[string]string)
-	createdFiles := make(map[string]*Picture)
+	createdFiles := make(map[uint]*Picture)
 
 	form, err := c.MultipartForm()
 	if err != nil {
@@ -128,6 +129,7 @@ func newPictureHandler(c echo.Context) error {
 	for _, file := range files {
 		key := uuid.NewV4()
 		pic := &Picture{
+			Hidden:       true,
 			Key:          key,
 			Ext:          path.Ext(file.Filename),
 			OriginalSrc:  path.Join(imagesOriginalSrc, datePath, key.String()+path.Ext(file.Filename)),
@@ -165,7 +167,7 @@ func newPictureHandler(c echo.Context) error {
 			fileErrors[file.Filename] = err.Error()
 			continue
 		}
-		createdFiles[pic.Key.String()] = pic
+		createdFiles[pic.ID] = pic
 	}
 	if len(fileErrors) > 0 {
 		return c.JSON(http.StatusBadRequest, Response{Error: &fileErrors})
@@ -197,6 +199,18 @@ func pictureVisibilityHandler(c echo.Context) error {
 	}
 
 	return c.String(http.StatusCreated, "changed")
+}
+
+func pictureUpdateHandler(c echo.Context) error {
+	p := &Picture{}
+	c.Bind(p)
+	c.Logger().Debugf("picture body %v", p)
+	if err := p.Update(); err != nil {
+		return c.JSON(http.StatusInternalServerError, Response{Error: err.Error()})
+	}
+
+	c.Response().WriteHeader(http.StatusNoContent)
+	return nil
 }
 
 func pictureDeleteHandler(c echo.Context) error {
