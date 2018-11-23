@@ -122,9 +122,13 @@ func newPictureHandler(c echo.Context) error {
 		strconv.Itoa(t.Year()),
 		strconv.Itoa(int(t.Month())),
 		strconv.Itoa(t.Day()))
-	os.MkdirAll(path.Join(imagesBasePath, imagesOriginalSrc, datePath), 0755)
-	os.MkdirAll(path.Join(imagesBasePath, imagesThumbnailSrc, datePath), 0755)
-	os.MkdirAll(path.Join(imagesBasePath, imagesProcessedSrc, datePath), 0755)
+	err = os.MkdirAll(path.Join(imagesBasePath, imagesOriginalSrc, datePath), 0755)
+	err = os.MkdirAll(path.Join(imagesBasePath, imagesThumbnailSrc, datePath), 0755)
+	err = os.MkdirAll(path.Join(imagesBasePath, imagesProcessedSrc, datePath), 0755)
+	if err != nil {
+		c.Logger().Error("error creating dirs:", err.Error())
+		return c.String(http.StatusInternalServerError, "Internal Server Error")
+	}
 
 	for _, file := range files {
 		key := uuid.NewV4()
