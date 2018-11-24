@@ -196,7 +196,9 @@ func newPictureHandler(c echo.Context) error {
 		}
 		select {
 		case <-syncPoint:
+			c.Logger().Debugf("syncPoint increment %d of %d", i, syncs)
 			i++
+		default:
 		}
 	}
 
