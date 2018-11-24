@@ -5,20 +5,27 @@ import (
 	"os/exec"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/labstack/echo"
 )
 
+func newProcessedPicture(p *Picture) *ProcessedPicture {
+	pp := &ProcessedPicture{Picture: p, wg: &sync.WaitGroup{}}
+	pp.wg.Add(3)
+	return pp
+}
+
 type ProcessedPicture struct {
 	*Picture
-	Blob []byte
+	wg *sync.WaitGroup
 }
 
 type PicturesProcessor struct {
-	hiResQueue chan *Picture
-	tnQueue    chan *Picture
-	pcQueue    chan *Picture
+	hiResQueue chan *ProcessedPicture
+	tnQueue    chan *ProcessedPicture
+	pcQueue    chan *ProcessedPicture
 	stop       chan struct{}
 	errors     chan error
 	logs       chan string
@@ -27,9 +34,9 @@ type PicturesProcessor struct {
 
 func NewPicturesProcessor(l echo.Logger) *PicturesProcessor {
 	pp := &PicturesProcessor{
-		hiResQueue: make(chan *Picture, 100),
-		tnQueue:    make(chan *Picture, 100),
-		pcQueue:    make(chan *Picture, 100),
+		hiResQueue: make(chan *ProcessedPicture, 100),
+		tnQueue:    make(chan *ProcessedPicture, 100),
+		pcQueue:    make(chan *ProcessedPicture, 100),
 		errors:     make(chan error),
 		logs:       make(chan string),
 	}
@@ -69,7 +76,7 @@ func (pp *PicturesProcessor) Start() {
 					return
 				}
 			default:
-				time.Sleep(100 * time.Millisecond)
+				time.Sleep(10 * time.Millisecond)
 				continue
 			}
 		}
@@ -82,15 +89,23 @@ func (pp *PicturesProcessor) Stop() {
 	close(pp.stop)
 }
 
-func (pp *PicturesProcessor) PutOriginal(p *Picture) {
-	if !pp.stopped {
-		pp.tnQueue <- p
-		pp.pcQueue <- p
-		pp.hiResQueue <- p
-	}
+func (pp *PicturesProcessor) PutOriginal(p *Picture) chan interface{} {
+	notify := make(chan interface{})
+	go (func() {
+		if !pp.stopped {
+			ps := newProcessedPicture(p)
+			pp.tnQueue <- ps
+			pp.pcQueue <- ps
+			pp.hiResQueue <- ps
+			ps.wg.Wait()
+			notify <- nil
+		}
+		close(notify)
+	})()
+	return notify
 }
 
-func (pp *PicturesProcessor) processTn(p *Picture) {
+func (pp *PicturesProcessor) processTn(p *ProcessedPicture) {
 	pp.logs <- "[tn] processing " + p.OriginalSrc
 	cmd := exec.Command(
 		"vipsthumbnail", path.Join(imagesBasePath, p.OriginalSrc),
@@ -102,9 +117,10 @@ func (pp *PicturesProcessor) processTn(p *Picture) {
 		return
 	}
 	pp.logs <- "[tn] finished " + p.OriginalSrc
+	p.wg.Done()
 }
 
-func (pp *PicturesProcessor) processPc(p *Picture) {
+func (pp *PicturesProcessor) processPc(p *ProcessedPicture) {
 	pp.logs <- "[pc] processing " + p.OriginalSrc
 
 	cmd := exec.Command(
@@ -117,9 +133,10 @@ func (pp *PicturesProcessor) processPc(p *Picture) {
 	}
 
 	pp.logs <- "[pc] finished " + p.OriginalSrc
+	p.wg.Done()
 }
 
-func (pp *PicturesProcessor) processHiRes(p *Picture) {
+func (pp *PicturesProcessor) processHiRes(p *ProcessedPicture) {
 	pp.logs <- "[hr] processing " + p.OriginalSrc
 
 	cmd := exec.Command(
@@ -142,4 +159,5 @@ func (pp *PicturesProcessor) processHiRes(p *Picture) {
 		pp.errors <- errors.New(string(data))
 	}
 	pp.logs <- "[hr] finished " + p.OriginalSrc
+	p.wg.Done()
 }

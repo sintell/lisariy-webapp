@@ -131,6 +131,8 @@ func newPictureHandler(c echo.Context) error {
 		return c.String(http.StatusInternalServerError, "Internal Server Error")
 	}
 
+	syncPoint := make(chan interface{})
+
 	for _, file := range files {
 		key := uuid.NewV4()
 		pic := &Picture{
@@ -172,7 +174,7 @@ func newPictureHandler(c echo.Context) error {
 			fileErrors[file.Filename] = err.Error()
 			continue
 		}
-		pp.PutOriginal(pic)
+		syncPoint <- pp.PutOriginal(pic)
 
 		err = pic.Create()
 		if err != nil {
@@ -184,6 +186,18 @@ func newPictureHandler(c echo.Context) error {
 	}
 	if len(fileErrors) > 0 {
 		return c.JSON(http.StatusBadRequest, Response{Error: &fileErrors})
+	}
+
+	syncs := len(files) - len(fileErrors)
+	i := 0
+	for {
+		if i >= syncs {
+			break
+		}
+		select {
+		case <-syncPoint:
+			i++
+		}
 	}
 
 	return c.JSON(http.StatusCreated, Response{Response: &createdFiles})
