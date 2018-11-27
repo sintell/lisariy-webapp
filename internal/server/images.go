@@ -4,9 +4,7 @@ import (
 	"errors"
 	"os/exec"
 	"path"
-	"strings"
 	"sync"
-	"time"
 
 	"github.com/labstack/echo"
 )
@@ -34,11 +32,8 @@ type PicturesProcessor struct {
 
 func NewPicturesProcessor(l echo.Logger) *PicturesProcessor {
 	pp := &PicturesProcessor{
-		hiResQueue: make(chan *ProcessedPicture, 100),
-		tnQueue:    make(chan *ProcessedPicture, 100),
-		pcQueue:    make(chan *ProcessedPicture, 100),
-		errors:     make(chan error),
-		logs:       make(chan string),
+		errors: make(chan error),
+		logs:   make(chan string),
 	}
 	go (func() {
 		for {
@@ -47,11 +42,6 @@ func NewPicturesProcessor(l echo.Logger) *PicturesProcessor {
 				l.Error(err)
 			case log := <-pp.logs:
 				l.Info(log)
-			case _, ok := <-pp.stop:
-				if !ok {
-					l.Info("stopping picture processor")
-					return
-				}
 			default:
 				continue
 			}
@@ -61,43 +51,14 @@ func NewPicturesProcessor(l echo.Logger) *PicturesProcessor {
 	return pp
 }
 
-func (pp *PicturesProcessor) Start() {
-	go (func() {
-		for {
-			select {
-			case p := <-pp.tnQueue:
-				go pp.processTn(p)
-			case p := <-pp.pcQueue:
-				go pp.processPc(p)
-			case p := <-pp.hiResQueue:
-				go pp.processHiRes(p)
-			case _, ok := <-pp.stop:
-				if !ok {
-					return
-				}
-			default:
-				time.Sleep(10 * time.Millisecond)
-				continue
-			}
-		}
-	})()
-	return
-}
-
-func (pp *PicturesProcessor) Stop() {
-	pp.stopped = true
-	close(pp.stop)
-}
-
 func (pp *PicturesProcessor) PutOriginal(p *Picture) chan interface{} {
 	notify := make(chan interface{})
 	go (func() {
 		if !pp.stopped {
 			ps := newProcessedPicture(p)
-			pp.tnQueue <- ps
-			pp.pcQueue <- ps
-			pp.hiResQueue <- ps
-			ps.wg.Wait()
+			pp.processTn(ps)
+			pp.processPc(ps)
+			pp.processHiRes(ps)
 			notify <- nil
 		}
 		close(notify)
@@ -110,7 +71,7 @@ func (pp *PicturesProcessor) processTn(p *ProcessedPicture) {
 	cmd := exec.Command(
 		"vipsthumbnail", path.Join(imagesBasePath, p.OriginalSrc),
 		"--size", "400>",
-		"-o", path.Join(imagesBasePath, p.ThumbnailSrc)+"[strip]")
+		"-o", path.Join(imagesBasePath, p.ThumbnailSrc.SrcX1)+"[strip]")
 	data, err := cmd.CombinedOutput()
 	if err != nil {
 		pp.errors <- errors.New(string(data))
@@ -126,7 +87,7 @@ func (pp *PicturesProcessor) processPc(p *ProcessedPicture) {
 	cmd := exec.Command(
 		"vipsthumbnail", path.Join(imagesBasePath, p.OriginalSrc),
 		"--size", "1024>",
-		"-o", path.Join(imagesBasePath, p.ProcessedSrc)+"[strip]")
+		"-o", path.Join(imagesBasePath, p.ProcessedSrc.SrcX1)+"[strip]")
 	data, err := cmd.CombinedOutput()
 	if err != nil {
 		pp.errors <- errors.New(string(data))
@@ -142,8 +103,7 @@ func (pp *PicturesProcessor) processHiRes(p *ProcessedPicture) {
 	cmd := exec.Command(
 		"vipsthumbnail", path.Join(imagesBasePath, p.OriginalSrc),
 		"--size", "800>",
-		"-o", path.Join(imagesBasePath,
-			strings.Replace(p.ThumbnailSrc, p.Key.String(), p.Key.String()+"@2x", 1)+"[strip]"))
+		"-o", path.Join(imagesBasePath, p.ThumbnailSrc.SrcX2)+"[strip]")
 	data, err := cmd.CombinedOutput()
 	if err != nil {
 		pp.errors <- errors.New(string(data))
@@ -152,8 +112,7 @@ func (pp *PicturesProcessor) processHiRes(p *ProcessedPicture) {
 	cmd = exec.Command(
 		"vipsthumbnail", path.Join(imagesBasePath, p.OriginalSrc),
 		"--size", "2048>",
-		"-o", path.Join(imagesBasePath,
-			strings.Replace(p.ProcessedSrc, p.Key.String(), p.Key.String()+"@2x", 1)+"[strip]"))
+		"-o", path.Join(imagesBasePath, p.ProcessedSrc.SrcX2)+"[strip]")
 	data, err = cmd.CombinedOutput()
 	if err != nil {
 		pp.errors <- errors.New(string(data))

@@ -42,17 +42,22 @@ func (u *User) Save() error {
 	return nil
 }
 
+type ImageSource struct {
+	SrcX1 string `json:"x1,omitempty"`
+	SrcX2 string `json:"x2,omitempty"`
+}
+
 type Picture struct {
 	ModelDefaults
-	Title        string    `json:"title,omitempty"`
-	Description  string    `json:"description,omitempty"`
-	Key          uuid.UUID `json:"-"`
-	Ext          string    `json:"-"`
-	OriginalSrc  string    `json:"-"`
-	ThumbnailSrc string    `json:"thumbnailSrc,omitempty"`
-	ProcessedSrc string    `json:"processedSrc,omitempty"`
-	Processed    bool      `json:"-"`
-	Hidden       bool      `json:"isHidden,omitempty"`
+	Title        string      `json:"title,omitempty"`
+	Description  string      `json:"description,omitempty"`
+	Key          uuid.UUID   `json:"-"`
+	Ext          string      `json:"-"`
+	OriginalSrc  string      `json:"-"`
+	ThumbnailSrc ImageSource `json:"tn,omitempty"`
+	ProcessedSrc ImageSource `json:"pc,omitempty"`
+	Processed    bool        `json:"-"`
+	Hidden       bool        `json:"isHidden,omitempty"`
 }
 
 func (p *Picture) FullName() string {

@@ -131,17 +131,21 @@ func newPictureHandler(c echo.Context) error {
 		return c.String(http.StatusInternalServerError, "Internal Server Error")
 	}
 
-	syncPoint := make(chan interface{})
+	syncPoint := make(chan interface{}, 100)
 
 	for _, file := range files {
 		key := uuid.NewV4()
+		tnSrc := path.Join(imagesThumbnailSrc, datePath, uuid.NewV4().String()+path.Ext(file.Filename))
+		tnX2Src := path.Join(imagesThumbnailSrc, datePath, uuid.NewV4().String()+"@2x"+path.Ext(file.Filename))
+		pcSrc := path.Join(imagesProcessedSrc, datePath, uuid.NewV4().String()+path.Ext(file.Filename))
+		pcX2Src := path.Join(imagesProcessedSrc, datePath, uuid.NewV4().String()+"@2x"+path.Ext(file.Filename))
 		pic := &Picture{
 			Hidden:       true,
 			Key:          key,
 			Ext:          path.Ext(file.Filename),
 			OriginalSrc:  path.Join(imagesOriginalSrc, datePath, key.String()+path.Ext(file.Filename)),
-			ThumbnailSrc: path.Join(imagesThumbnailSrc, datePath, uuid.NewV4().String()+path.Ext(file.Filename)),
-			ProcessedSrc: path.Join(imagesProcessedSrc, datePath, uuid.NewV4().String()+path.Ext(file.Filename)),
+			ThumbnailSrc: ImageSource{tnSrc, tnX2Src},
+			ProcessedSrc: ImageSource{pcSrc, pcX2Src},
 		}
 
 		c.Logger().Debugf("file header is: %+v", file.Header)
