@@ -76,6 +76,9 @@ func (s *Server) Stop() {
 		s.e.Logger.Fatalf("error during webserver shutdown: %s")
 	}
 	<-ctx.Done()
+	if s.str == nil {
+		return
+	}
 	if err := s.str.Shutdown(); err != nil {
 		s.e.Logger.Fatalf("error during store shutdown: %s", err)
 	}
