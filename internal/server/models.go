@@ -3,6 +3,8 @@ package server
 import (
 	"time"
 
+	"golang.org/x/crypto/bcrypt"
+
 	"github.com/go-pg/pg"
 	"github.com/go-pg/pg/orm"
 	uuid "github.com/satori/go.uuid"
@@ -21,9 +23,10 @@ type ModelDefaults struct {
 
 type User struct {
 	ModelDefaults
-	Key         uuid.UUID `json:"key,omitempty" sql:",type:uuid"`
-	Name        string    `json:"name,omitempty"`
-	IsAnonymous bool      `json:"isAnonymous,omitempty"`
+	Key          uuid.UUID `json:"key,omitempty" sql:",type:uuid"`
+	Login        string    `json:"name,omitempty" sql:",unique"`
+	IsAnonymous  bool      `json:"isAnonymous,omitempty"`
+	PasswordHash string    `json:"-"`
 }
 
 func (u *User) BeforeInsert(db orm.DB) error {
@@ -53,6 +56,40 @@ func (u *User) Save() error {
 		WherePK().
 		Update()
 	return err
+}
+
+type UserWithPassword struct {
+	User
+	Password string `json:"password"`
+}
+
+func (uwp *UserWithPassword) Register() error {
+	hash, err := bcrypt.GenerateFromPassword([]byte(uwp.Password), bcrypt.MinCost)
+	if err != nil {
+		return err
+	}
+	uwp.User.PasswordHash = string(hash)
+
+	uwp.User.Save()
+
+	return nil
+}
+
+func (uwp *UserWithPassword) Authenticate() error {
+	err := store.db.Model(&uwp.User).
+		Where("login = ?login").
+		First()
+
+	if err != nil {
+		return err
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(uwp.User.PasswordHash), []byte(uwp.Password))
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 type ImageSource struct {

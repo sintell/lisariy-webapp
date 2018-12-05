@@ -55,6 +55,20 @@ func loginHandler(c echo.Context) error {
 			"no user in session: " + err.Error(),
 		})
 	}
+
+	uwp := &UserWithPassword{User: *u}
+	err = c.Bind(uwp)
+	if err != nil {
+		c.Logger().Warn("Error parsing creds:", err)
+		return c.JSON(http.StatusBadRequest, Response{Error: "Can't parse credentials"})
+	}
+
+	err = uwp.Authenticate()
+	if err != nil {
+		c.Logger().Warn("Error authenticating:", err)
+		return c.JSON(http.StatusForbidden, Response{Error: "Bad credentials"})
+	}
+
 	u.IsAnonymous = false
 	u.Save()
 
@@ -68,9 +82,6 @@ func logoutHandler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, Response{Error: "No user in session"})
 	}
 
-	if u.IsAnonymous {
-		return c.JSON(http.StatusUnauthorized, Response{Error: "Unauthorized"})
-	}
 	u.IsAnonymous = true
 	u.Save()
 	sess.Save(c.Request(), c.Response())
@@ -84,6 +95,7 @@ func meHandler(c echo.Context) error {
 			Error: "no user in session",
 		})
 	}
+
 	return c.JSON(http.StatusOK, Response{Response: u})
 }
 
