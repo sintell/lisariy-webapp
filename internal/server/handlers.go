@@ -52,7 +52,7 @@ func loginHandler(c echo.Context) error {
 	u, err := userFromSession(getSession(c))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, struct{ Error string }{
-			"no user in session",
+			"no user in session: " + err.Error(),
 		})
 	}
 	u.IsAnonymous = false
@@ -65,11 +65,14 @@ func logoutHandler(c echo.Context) error {
 	sess := getSession(c)
 	u, err := userFromSession(sess)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, struct{ Error string }{
-			"no user in session",
-		})
+		return c.JSON(http.StatusBadRequest, Response{Error: "No user in session"})
+	}
+
+	if u.IsAnonymous {
+		return c.JSON(http.StatusUnauthorized, Response{Error: "Unauthorized"})
 	}
 	u.IsAnonymous = true
+	u.Save()
 	sess.Save(c.Request(), c.Response())
 	return nil
 }
@@ -99,7 +102,7 @@ func pictureHandler(c echo.Context) error {
 	}
 
 	p := &Picture{}
-	if err := p.GetByID(uint(id)); err != nil {
+	if err := p.GetByID(id); err != nil {
 		if err == ErrNotFound {
 			return c.JSON(http.StatusNotFound, Response{Error: err.Error()})
 		}
@@ -110,7 +113,7 @@ func pictureHandler(c echo.Context) error {
 
 func newPictureHandler(c echo.Context) error {
 	fileErrors := make(map[string]string)
-	createdFiles := make(map[uint]*Picture)
+	createdFiles := make(map[int]*Picture)
 
 	form, err := c.MultipartForm()
 	if err != nil {
@@ -144,8 +147,9 @@ func newPictureHandler(c echo.Context) error {
 			Key:          key,
 			Ext:          path.Ext(file.Filename),
 			OriginalSrc:  path.Join(imagesOriginalSrc, datePath, key.String()+path.Ext(file.Filename)),
-			ThumbnailSrc: ImageSource{tnSrc, tnX2Src},
-			ProcessedSrc: ImageSource{pcSrc, pcX2Src},
+			ThumbnailSrc: &ImageSource{SrcX1: tnSrc, SrcX2: tnX2Src},
+			ProcessedSrc: &ImageSource{SrcX1: pcSrc, SrcX2: pcX2Src},
+			Tags:         []*Tag{&Tag{Text: "Deafult Category"}},
 		}
 
 		c.Logger().Debugf("file header is: %+v", file.Header)
@@ -186,13 +190,15 @@ func newPictureHandler(c echo.Context) error {
 			fileErrors[file.Filename] = err.Error()
 			continue
 		}
-		createdFiles[pic.ID] = pic
+		createdFiles[pic.Id] = pic
 	}
+
 	if len(fileErrors) > 0 {
+		c.Logger().Error(fileErrors)
 		return c.JSON(http.StatusBadRequest, Response{Error: &fileErrors})
 	}
 
-	syncs := len(files) - len(fileErrors)
+	syncs := len(files)
 	i := 0
 	for {
 		if i >= syncs {
@@ -200,8 +206,8 @@ func newPictureHandler(c echo.Context) error {
 		}
 		select {
 		case <-syncPoint:
-			c.Logger().Debugf("syncPoint increment %d of %d", i, syncs)
 			i++
+			c.Logger().Debugf("syncPoint increment %d of %d", i, syncs)
 		default:
 		}
 	}
@@ -212,6 +218,7 @@ func newPictureHandler(c echo.Context) error {
 func pictureVisibilityHandler(c echo.Context) error {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
+		c.Logger().Error(err)
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 
@@ -220,11 +227,13 @@ func pictureVisibilityHandler(c echo.Context) error {
 
 	switch action {
 	case actionShow:
-		if err := p.ShowByID(uint(id)); err != nil {
+		if err := p.ShowByID(id); err != nil {
+			c.Logger().Error(err)
 			return c.JSON(http.StatusInternalServerError, Response{Error: err.Error()})
 		}
 	case actionHide:
-		if err := p.HideByID(uint(id)); err != nil {
+		if err := p.HideByID(id); err != nil {
+			c.Logger().Error(err)
 			return c.JSON(http.StatusInternalServerError, Response{Error: err.Error()})
 		}
 	default:
@@ -239,6 +248,7 @@ func pictureUpdateHandler(c echo.Context) error {
 	c.Bind(p)
 	c.Logger().Debugf("picture body %v", p)
 	if err := p.Update(); err != nil {
+		c.Logger().Error(err)
 		return c.JSON(http.StatusInternalServerError, Response{Error: err.Error()})
 	}
 
@@ -249,11 +259,13 @@ func pictureUpdateHandler(c echo.Context) error {
 func pictureDeleteHandler(c echo.Context) error {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
+		c.Logger().Error(err)
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 
 	p := &Picture{}
-	if err := p.DeleteByID(uint(id)); err != nil {
+	if err := p.DeleteByID(id); err != nil {
+		c.Logger().Error(err)
 		return c.JSON(http.StatusInternalServerError, Response{Error: err.Error()})
 	}
 

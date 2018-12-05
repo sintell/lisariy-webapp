@@ -5,10 +5,10 @@
     },
     "db": {
         "host": "localhost",
-        "port": "5432",
+        "port": "5555",
         "user": "lisariy_webapp",
         "dbName": "lisariy_main",
-        "password": "soMeR4nDomK3y",
+        "password": "docker",
         "debug": true
     },
     "log": {

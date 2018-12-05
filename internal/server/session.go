@@ -34,7 +34,10 @@ func setupSession(next echo.HandlerFunc) echo.HandlerFunc {
 		c.Logger().Debug("session values: %v", sess.Values)
 
 		if _, exists := sess.Values[KeyUser]; exists {
-			return next(c)
+			if _, err := userFromSession(sess); err == nil {
+				return next(c)
+			}
+			c.Logger().Warnf("stale session: %v, will recreate", sess)
 		}
 
 		u := &User{IsAnonymous: true, Key: uuid.NewV4()}
@@ -43,7 +46,7 @@ func setupSession(next echo.HandlerFunc) echo.HandlerFunc {
 			return c.String(http.StatusInternalServerError, err.Error())
 		}
 
-		sess.Values[KeyUser] = u.ID
+		sess.Values[KeyUser] = u.Id
 		if err := sess.Save(c.Request(), c.Response()); err != nil {
 			c.Logger().Error("can't save session:", err)
 			return c.String(http.StatusInternalServerError, err.Error())
@@ -57,7 +60,7 @@ func setupSession(next echo.HandlerFunc) echo.HandlerFunc {
 func userFromSession(s *sessions.Session) (*User, error) {
 	if uid, exists := s.Values[KeyUser]; exists {
 		u := &User{}
-		if err := u.PopulateByID(uid.(uint)); err != nil {
+		if err := u.PopulateByID(uid.(int)); err != nil {
 			return nil, err
 		}
 

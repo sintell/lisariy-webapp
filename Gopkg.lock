@@ -8,6 +8,12 @@
   version = "v0.3.1"
 
 [[projects]]
+  name = "github.com/antonlindstrom/pgstore"
+  packages = ["."]
+  revision = "a407030ba6d0efd9a1aad3d0cfc18a9b13d2f2e7"
+  version = "1.0.0"
+
+[[projects]]
   name = "github.com/bitly/go-simplejson"
   packages = ["."]
   revision = "aabad6e819789e569bd6aabf444c935aa9ba1e44"
@@ -30,6 +36,12 @@
   packages = ["."]
   revision = "0ca9ea5df5451ffdf184b4428c902747c2c11cd7"
   version = "v1.0.0"
+
+[[projects]]
+  name = "github.com/go-pg/pg"
+  packages = [".","internal","internal/parser","internal/pool","orm","types"]
+  revision = "514bed76d8f579d6ff8d40294fa77e476a5c1b3f"
+  version = "v6.15.0"
 
 [[projects]]
   name = "github.com/gorilla/context"
@@ -62,12 +74,6 @@
   version = "v0.3.6"
 
 [[projects]]
-  name = "github.com/jinzhu/gorm"
-  packages = [".","dialects/postgres"]
-  revision = "6ed508ec6a4ecb3531899a69cbc746ccf65a4166"
-  version = "v1.9.1"
-
-[[projects]]
   branch = "master"
   name = "github.com/jinzhu/inflection"
   packages = ["."]
@@ -93,7 +99,7 @@
 
 [[projects]]
   name = "github.com/lib/pq"
-  packages = [".","hstore","oid"]
+  packages = [".","oid"]
   revision = "4ded0e9383f75c197b3a2aaa6d590ac52df6fd79"
   version = "v1.0.0"
 
@@ -116,6 +122,12 @@
   version = "v0.10.0"
 
 [[projects]]
+  name = "github.com/pkg/errors"
+  packages = ["."]
+  revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
+  version = "v0.8.0"
+
+[[projects]]
   name = "github.com/satori/go.uuid"
   packages = ["."]
   revision = "f58768cc1a7a7e77a3bd49e98cdd21419399b6a3"
@@ -135,14 +147,14 @@
 
 [[projects]]
   branch = "master"
-  name = "github.com/wader/gormstore"
+  name = "github.com/vmihailenco/sasl"
   packages = ["."]
-  revision = "137864aca927cbee4054644cea080cfa6c8eddf7"
+  revision = "2f13c189728a02f8cc31b3b9cc06047b383c21cc"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
-  packages = ["acme","acme/autocert"]
+  packages = ["acme","acme/autocert","pbkdf2"]
   revision = "3d3f9f413869b949e48070b5bc593aa22cc2b8f2"
 
 [[projects]]
@@ -160,6 +172,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "fb049a41a8d765cda43d26a37a645bcf776fbdcd496ad104fd4e65be2915a85f"
+  inputs-digest = "61d070b21e9e39aedf81a2a631ffed643c3e68273f1328b1a148835c493080f9"
   solver-name = "gps-cdcl"
   solver-version = 1

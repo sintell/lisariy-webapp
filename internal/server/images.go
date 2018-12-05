@@ -59,6 +59,7 @@ func (pp *PicturesProcessor) PutOriginal(p *Picture) chan interface{} {
 			pp.processTn(ps)
 			pp.processPc(ps)
 			pp.processHiRes(ps)
+			ps.wg.Wait()
 			notify <- nil
 		}
 		close(notify)
