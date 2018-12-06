@@ -53,8 +53,7 @@ func (s *Server) Start(cfg *config.Config) *Server {
 	pp = NewPicturesProcessor(s.e.Logger)
 
 	registerMiddlewares(s.e, s.cfg)
-	registerHandlers(s.e)
-	registerProtectedHandlers(s.e)
+	registerHandlers(s.e, s.cfg)
 
 	s.e.Logger.Info("starting server with PID=", os.Getpid(), "on PORT=", cfg.WebApp.Port)
 

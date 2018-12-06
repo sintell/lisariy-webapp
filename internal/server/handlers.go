@@ -9,6 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/labstack/echo/middleware"
+	"github.com/sintell/lisariy-server/internal/pkg/config"
+
 	"github.com/satori/go.uuid"
 
 	"github.com/labstack/echo"
@@ -32,13 +35,18 @@ type Response struct {
 	Error    interface{} `json:"error,omitempty"`
 }
 
-func registerHandlers(e *echo.Echo) {
+func registerHandlers(e *echo.Echo, cfg *config.Config) {
 	e.Add(http.MethodGet, "/api/pictures", picturesListHandler).Name = "pictures"
 	e.Add(http.MethodGet, "/api/picture/:id", pictureHandler).Name = "picture"
 	e.Add(http.MethodPost, "/api/login", loginHandler).Name = "login"
-}
+	e.Add(http.MethodPost, "/api/admin/register", registerAdminHandler, middleware.BasicAuth(
+		func(l, p string, c echo.Context) (bool, error) {
+			if l == cfg.WebApp.AdminLogin && p == cfg.WebApp.AdminPassword {
+				return true, nil
+			}
+			return false, nil
+		}))
 
-func registerProtectedHandlers(e *echo.Echo) {
 	protected := e.Group("", checkAuth)
 	protected.Add(http.MethodGet, "/api/me", meHandler)
 	protected.Add(http.MethodPost, "/api/logout", logoutHandler).Name = "logout"
@@ -62,6 +70,8 @@ func loginHandler(c echo.Context) error {
 		c.Logger().Warn("Error parsing creds:", err)
 		return c.JSON(http.StatusBadRequest, Response{Error: "Can't parse credentials"})
 	}
+
+	c.Logger().Debugf("got user data: %s", uwp)
 
 	err = uwp.Authenticate()
 	if err != nil {
@@ -97,6 +107,24 @@ func meHandler(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, Response{Response: u})
+}
+
+func registerAdminHandler(c echo.Context) error {
+	u, _ := userFromSession(getSession(c))
+	uwp := &UserWithPassword{User: *u}
+	err := c.Bind(uwp)
+	if err != nil {
+		c.Logger().Error(err)
+		return c.JSON(http.StatusBadRequest, Response{Error: "Bad credentials"})
+	}
+
+	err = uwp.Register()
+	if err != nil {
+		c.Logger().Error(err)
+		return c.String(http.StatusInternalServerError, "Something went wrong with the server")
+	}
+
+	return c.JSON(http.StatusOK, uwp.User)
 }
 
 func picturesListHandler(c echo.Context) error {

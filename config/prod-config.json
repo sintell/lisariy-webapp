@@ -1,19 +1,21 @@
 {
     "webApp":{
         "port": "9182",
-        "shutdownTimout": 10
+        "shutdownTimout": 10,
+        "adminLogin": "FILTERED",
+        "adminPassword": "FILTERED"
     },
     "db": {
         "host": "db",
         "port": "5432",
         "user": "lisariy_webapp",
         "dbName": "lisariy_main",
-        "password": "docker",
-        "debug": true
+        "password": "FILTERED",
+        "debug": false
     },
     "log": {
         "logsPath": "/var/log/lisariy-webapp/lisariy-webapp.log",
         "alsoLogToStdOut": true,
-        "level": "DEBUG"
+        "level": "INFO"
     }
 }

@@ -13,6 +13,8 @@ type Config struct {
 	WebApp struct {
 		Port            string        `json:"port,omitempty"`
 		ShutdownTimeout time.Duration `json:"shutdownTimeout,omitempty"`
+		AdminLogin      string        `json:"adminLogin,omitempty"`
+		AdminPassword   string        `json:"adminPassword,omitempty"`
 	} `json:"webApp,omitempty"`
 	DB struct {
 		Host     string `json:"host,omitempty"`

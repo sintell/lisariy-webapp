@@ -69,3 +69,15 @@ func userFromSession(s *sessions.Session) (*User, error) {
 
 	return nil, errors.New("no user present")
 }
+
+func setUserToSession(c echo.Context, u *User) error {
+	sess := getSession(c)
+	sess.Values[KeyUser] = u.Id
+	if err := sess.Save(c.Request(), c.Response()); err != nil {
+		c.Logger().Error("can't save session:", err)
+		return c.String(http.StatusInternalServerError, err.Error())
+	}
+
+	c.Logger().Debugf("session set for %v", u)
+	return nil
+}

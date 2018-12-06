@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -24,9 +25,14 @@ type ModelDefaults struct {
 type User struct {
 	ModelDefaults
 	Key          uuid.UUID `json:"key,omitempty" sql:",type:uuid"`
-	Login        string    `json:"name,omitempty" sql:",unique"`
+	Login        string    `json:"login,omitempty" sql:",unique"`
 	IsAnonymous  bool      `json:"isAnonymous,omitempty"`
 	PasswordHash string    `json:"-"`
+}
+
+func (u *User) String() string {
+	return fmt.Sprintf("<User id='%d' login='%s' key='%s' is_anonymous='%v' password_hash='FILTERED(%d)'>",
+		u.Id, u.Login, u.Key, u.IsAnonymous, len(u.PasswordHash))
 }
 
 func (u *User) BeforeInsert(db orm.DB) error {
@@ -63,12 +69,17 @@ type UserWithPassword struct {
 	Password string `json:"password"`
 }
 
+func (uwp *UserWithPassword) String() string {
+	return fmt.Sprintf("<UserWithPassword %s password='FILTERED(%d)'>", uwp.User.String(), len(uwp.Password))
+}
+
 func (uwp *UserWithPassword) Register() error {
 	hash, err := bcrypt.GenerateFromPassword([]byte(uwp.Password), bcrypt.MinCost)
 	if err != nil {
 		return err
 	}
 	uwp.User.PasswordHash = string(hash)
+	uwp.User.IsAnonymous = false
 
 	uwp.User.Save()
 
@@ -109,6 +120,10 @@ type Picture struct {
 	Processed    bool         `json:"-"`
 	Hidden       bool         `json:"isHidden,omitempty"`
 	Tags         []*Tag       `json:"tags" pg:"many2many:picture_to_tags"`
+}
+
+func (p *Picture) String() string {
+	return fmt.Sprintf("<Picture id='%d' title='%s' original_name='%s' hidden='%v'>", p.Id, p.Title, p.FullName(), p.Hidden)
 }
 
 func (p *Picture) FullName() string {
@@ -200,6 +215,10 @@ type Tag struct {
 	Description string       `json:"description,omitempty"`
 	Hidden      bool         `json:"-"`
 	Pictures    PicturesList `json:"pictures,omitempty"`
+}
+
+func (t *Tag) String() string {
+	return fmt.Sprintf("<Tag id='%d' text='%s' hidden='%v'>", t.Id, t.Text, t.Hidden)
 }
 
 type TagsList []*Tag
