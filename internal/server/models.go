@@ -164,6 +164,19 @@ func (p *Picture) ShowByID(id int) error {
 
 func (p *Picture) Update() error {
 	return store.db.RunInTransaction(func(tx *pg.Tx) error {
+		_, err := tx.Model(p).
+			Column("title", "description").
+			WherePK().
+			Returning("*").
+			Update()
+		if err != nil {
+			return err
+		}
+
+		if p.Tags == nil || len(p.Tags) == 0 {
+			return nil
+		}
+
 		for _, t := range p.Tags {
 			_, err := tx.Model(t).
 				Where("text = ?text").
@@ -172,15 +185,6 @@ func (p *Picture) Update() error {
 			if err != nil {
 				return err
 			}
-		}
-
-		_, err := tx.Model(p).
-			Column("title", "description").
-			WherePK().
-			Returning("*").
-			Update()
-		if err != nil {
-			return err
 		}
 
 		pictureToTags := []*PictureToTag{}
@@ -203,10 +207,22 @@ func (p *Picture) DeleteByID(id int) error {
 type PicturesList []*Picture
 
 func (pl *PicturesList) GetAll() error {
-	return store.db.Model(pl).
+	err := store.db.Model(pl).
+		Column("picture.*", "Tags").
 		Order("created_at ASC").
 		Relation("Tags").
 		Select()
+
+	if err != nil {
+		return err
+	}
+
+	for i, pic := range ([]*Picture)(*pl) {
+		if pic.Tags == nil {
+			([]*Picture)(*pl)[i].Tags = TagsList{}
+		}
+	}
+	return nil
 }
 
 type Tag struct {

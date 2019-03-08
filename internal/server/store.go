@@ -49,15 +49,7 @@ func NewStore(cfg *config.Config, e *echo.Echo) (*Store, error) {
 	}
 
 	for _, model := range []interface{}{&User{}, &Tag{}, &Picture{}, &PictureToTag{}} {
-		err := store.db.DropTable(model, &orm.DropTableOptions{
-			IfExists: true,
-			Cascade:  true,
-		})
-		if err != nil {
-			e.Logger.Fatal(err)
-		}
-
-		err = store.db.CreateTable(model, &orm.CreateTableOptions{
+		err := store.db.CreateTable(model, &orm.CreateTableOptions{
 			FKConstraints: true,
 			IfNotExists:   true,
 		})
