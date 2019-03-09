@@ -131,8 +131,10 @@ func registerAdminHandler(c echo.Context) error {
 }
 
 func picturesListHandler(c echo.Context) error {
+	u, _ := userFromSession(getSession(c))
+	withHidden := u.IsAnonymous == false
 	pl := &PicturesList{}
-	if err := pl.GetAll(); err != nil {
+	if err := pl.GetAll(withHidden); err != nil {
 		return c.JSON(http.StatusInternalServerError, Response{Error: err.Error()})
 	}
 	return c.JSON(http.StatusOK, Response{Response: pl})

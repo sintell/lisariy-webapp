@@ -225,9 +225,15 @@ func (p *Picture) DeleteByID(id int) error {
 
 type PicturesList []*Picture
 
-func (pl *PicturesList) GetAll() error {
-	err := store.db.Model(pl).
-		Column("picture.*", "Tags").
+func (pl *PicturesList) GetAll(includeHidden bool) error {
+	q := store.db.Model(pl).
+		Column("picture.*", "Tags")
+
+	if !includeHidden {
+		q = q.Where("hidden = ?", false)
+	}
+
+	err := q.
 		Order("created_at ASC").
 		Relation("Tags").
 		Select()
