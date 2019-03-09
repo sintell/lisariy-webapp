@@ -173,6 +173,15 @@ func (p *Picture) Update() error {
 			return err
 		}
 
+		pictureToTags := []*PictureToTag{}
+
+		_, err = tx.Model(&pictureToTags).
+			Where("picture_id = ?", p.Id).
+			Delete()
+		if err != nil {
+			return err
+		}
+
 		if p.Tags == nil || len(p.Tags) == 0 {
 			return nil
 		}
@@ -187,7 +196,6 @@ func (p *Picture) Update() error {
 			}
 		}
 
-		pictureToTags := []*PictureToTag{}
 		for _, tag := range p.Tags {
 			pictureToTags = append(pictureToTags, &PictureToTag{PictureId: p.Id, TagId: tag.Id})
 		}
@@ -199,9 +207,20 @@ func (p *Picture) Update() error {
 }
 
 func (p *Picture) DeleteByID(id int) error {
-	p.Id = id
-	_, err := store.db.Model(p).Delete()
-	return err
+	return store.db.RunInTransaction(func(tx *pg.Tx) error {
+		p.Id = id
+		pictureToTags := []*PictureToTag{}
+
+		_, err := tx.Model(&pictureToTags).
+			Where("picture_id = ?", p.Id).
+			Delete()
+		if err != nil {
+			return err
+		}
+
+		_, err = store.db.Model(p).Delete()
+		return err
+	})
 }
 
 type PicturesList []*Picture
@@ -231,16 +250,37 @@ type Tag struct {
 	Description string       `json:"description,omitempty"`
 	Hidden      bool         `json:"-"`
 	Pictures    PicturesList `json:"pictures,omitempty"`
+	Usages      int          `json:"usages,omitempty" sql:"-"`
 }
 
 func (t *Tag) String() string {
 	return fmt.Sprintf("<Tag id='%d' text='%s' hidden='%v'>", t.Id, t.Text, t.Hidden)
 }
 
+func (t *Tag) LoadByID(id int) error {
+	t.Id = id
+	return store.db.Model(t).WherePK().First()
+}
+
 type TagsList []*Tag
 
-func (tl *TagsList) GetAll() error {
+func (tl *TagsList) LoadAll() error {
 	return store.db.Model(tl).Order("created_at ASC").Select()
+}
+
+func (tl *TagsList) LoadAllWithCount() error {
+	return store.db.
+		Model(tl).
+		Column("id", "created_at", "text", "description").
+		ColumnExpr("count(ptt.picture_id) AS usages").
+		Join("JOIN picture_to_tags ptt ON tag.id = ptt.tag_id").
+		Group("id", "created_at", "text", "description").
+		Order("usages DESC", "created_at ASC").
+		Select()
+}
+
+func (tl *TagsList) LoadWithMatchingText(text string) error {
+	return store.db.Model(tl).Order("created_at ASC").Where("text LIKE ?", "%"+text+"%").Select()
 }
 
 type PictureToTag struct {

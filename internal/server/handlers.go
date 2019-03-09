@@ -38,6 +38,9 @@ type Response struct {
 func registerHandlers(e *echo.Echo, cfg *config.Config) {
 	e.Add(http.MethodGet, "/api/pictures", picturesListHandler).Name = "pictures"
 	e.Add(http.MethodGet, "/api/picture/:id", pictureHandler).Name = "picture"
+	e.Add(http.MethodGet, "/api/categories", categoriesListhandler).Name = "categories"
+	e.Add(http.MethodGet, "/api/category/:id", categoryHandler).Name = "category"
+	e.Add(http.MethodGet, "/api/category", categorySearchHandler).Name = "categorySearch"
 	e.Add(http.MethodPost, "/api/login", loginHandler).Name = "login"
 	e.Add(http.MethodPost, "/api/admin/register", registerAdminHandler, middleware.BasicAuth(
 		func(l, p string, c echo.Context) (bool, error) {
@@ -332,4 +335,41 @@ func checkAuth(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 		return next(c)
 	}
+}
+
+func categoriesListhandler(c echo.Context) error {
+	categories := TagsList{}
+
+	err := categories.LoadAllWithCount()
+	if err != nil {
+		return c.String(http.StatusServiceUnavailable, "Service unavailable")
+	}
+
+	return c.JSON(http.StatusOK, Response{Response: categories})
+}
+
+func categoryHandler(c echo.Context) error {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+	}
+
+	category := Tag{}
+	err = category.LoadByID(id)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, Response{Error: "Not found"})
+	}
+
+	return c.JSON(http.StatusOK, Response{Response: category})
+}
+
+func categorySearchHandler(c echo.Context) error {
+	query := c.QueryParam("text")
+	categories := TagsList{}
+	err := categories.LoadWithMatchingText(query)
+	if err != nil {
+		return c.JSON(http.StatusOK, Response{Response: []*Tag{}})
+	}
+
+	return c.JSON(http.StatusOK, Response{Response: categories})
 }
