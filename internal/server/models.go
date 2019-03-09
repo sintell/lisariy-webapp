@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gosimple/slug"
+
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/go-pg/pg"
@@ -137,7 +139,7 @@ func (p *Picture) Create() error {
 
 func (p *Picture) GetByID(id int) error {
 	p.Id = id
-	return store.db.Model(p).WherePK().First()
+	return store.db.Model(p).Column("picture.*", "Tags").WherePK().Relation("Tags").First()
 }
 
 func (p *Picture) HideByID(id int) error {
@@ -187,10 +189,7 @@ func (p *Picture) Update() error {
 		}
 
 		for _, t := range p.Tags {
-			_, err := tx.Model(t).
-				Where("text = ?text").
-				Returning("*").
-				SelectOrInsert()
+			err := t.GetOrCreate(tx)
 			if err != nil {
 				return err
 			}
@@ -225,12 +224,20 @@ func (p *Picture) DeleteByID(id int) error {
 
 type PicturesList []*Picture
 
-func (pl *PicturesList) GetAll(includeHidden bool) error {
+// GetAll populates pictures list with data
+//	- `includeHidden` - also loads pictures that are hidden from unauthorized users
+//	- `categories` - list of category ids to filter by, if nil or empty it will be ignored
+func (pl *PicturesList) GetAll(includeHidden bool, categories []int) error {
 	q := store.db.Model(pl).
 		Column("picture.*", "Tags")
 
 	if !includeHidden {
 		q = q.Where("hidden = ?", false)
+	}
+
+	if categories != nil && len(categories) > 0 {
+		q = q.Join("JOIN picture_to_tags ptt ON picture.id = ptt.picture_id").
+			JoinOn("ptt.tag_id IN (?)", pg.In(categories))
 	}
 
 	err := q.
@@ -253,19 +260,78 @@ func (pl *PicturesList) GetAll(includeHidden bool) error {
 type Tag struct {
 	ModelDefaults
 	Text        string       `json:"text,omitempty"`
+	Slug        string       `json:"slug,omitempty"`
 	Description string       `json:"description,omitempty"`
 	Hidden      bool         `json:"-"`
-	Pictures    PicturesList `json:"pictures,omitempty"`
+	Pictures    PicturesList `json:"pictures,omitempty" pg:"many2many:picture_to_tags"`
 	Usages      int          `json:"usages,omitempty" sql:"-"`
+}
+
+func (t *Tag) GetOrCreate(tx *pg.Tx) error {
+	tag := store.db.Model(t)
+	if tx != nil {
+		tag = tx.Model(t)
+	}
+
+	t.Slug = slug.Make(t.Text)
+
+	_, err := tag.
+		Where("text = ?text").
+		Returning("*").
+		SelectOrInsert()
+	return err
 }
 
 func (t *Tag) String() string {
 	return fmt.Sprintf("<Tag id='%d' text='%s' hidden='%v'>", t.Id, t.Text, t.Hidden)
 }
 
+func (t *Tag) BeforeUpdate(db orm.DB) error {
+	t.UpdatedAt = time.Now()
+	return nil
+}
+
 func (t *Tag) LoadByID(id int) error {
 	t.Id = id
 	return store.db.Model(t).WherePK().First()
+}
+
+func (t *Tag) LoadWithPictures(id int) error {
+	t.Id = id
+	return store.db.
+		Model(t).
+		Column("tag.*", "Pictures").
+		WherePK().
+		First()
+}
+
+func (t *Tag) Update() error {
+	t.Slug = slug.Make(t.Text)
+	_, err := store.db.Model(t).
+		Column("text", "description", "slug").
+		WherePK().
+		Returning("*").
+		Update()
+	return err
+}
+
+func (t *Tag) DeleteByID(id int) error {
+	t.Id = id
+	return store.db.RunInTransaction(func(tx *pg.Tx) error {
+		_, err := tx.Model(t).
+			WherePK().
+			Delete()
+
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.Model(&PictureToTag{}).
+			Where("tag_id = ?", t.Id).
+			Delete()
+
+		return err
+	})
 }
 
 type TagsList []*Tag
@@ -277,11 +343,11 @@ func (tl *TagsList) LoadAll() error {
 func (tl *TagsList) LoadAllWithCount() error {
 	return store.db.
 		Model(tl).
-		Column("id", "created_at", "text", "description").
+		Column("id", "updated_at", "text", "description").
 		ColumnExpr("count(ptt.picture_id) AS usages").
 		Join("JOIN picture_to_tags ptt ON tag.id = ptt.tag_id").
-		Group("id", "created_at", "text", "description").
-		Order("usages DESC", "created_at ASC").
+		Group("id", "updated_at", "text", "description").
+		Order("usages DESC", "updated_at ASC").
 		Select()
 }
 

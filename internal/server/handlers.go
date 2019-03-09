@@ -36,11 +36,6 @@ type Response struct {
 }
 
 func registerHandlers(e *echo.Echo, cfg *config.Config) {
-	e.Add(http.MethodGet, "/api/pictures", picturesListHandler).Name = "pictures"
-	e.Add(http.MethodGet, "/api/picture/:id", pictureHandler).Name = "picture"
-	e.Add(http.MethodGet, "/api/categories", categoriesListhandler).Name = "categories"
-	e.Add(http.MethodGet, "/api/category/:id", categoryHandler).Name = "category"
-	e.Add(http.MethodGet, "/api/category", categorySearchHandler).Name = "categorySearch"
 	e.Add(http.MethodPost, "/api/login", loginHandler).Name = "login"
 	e.Add(http.MethodPost, "/api/admin/register", registerAdminHandler, middleware.BasicAuth(
 		func(l, p string, c echo.Context) (bool, error) {
@@ -50,13 +45,25 @@ func registerHandlers(e *echo.Echo, cfg *config.Config) {
 			return false, nil
 		}))
 
+	e.Add(http.MethodGet, "/api/pictures", picturesListHandler).Name = "pictures"
+	e.Add(http.MethodGet, "/api/picture/:id", pictureHandler).Name = "picture"
+
+	e.Add(http.MethodGet, "/api/categories", categoriesListhandler).Name = "categories"
+	e.Add(http.MethodGet, "/api/category", categorySearchHandler).Name = "categorySearch"
+	e.Add(http.MethodGet, "/api/category/:id", categoryHandler).Name = "category"
+	e.Add(http.MethodGet, "/api/category/:id/pictures", categoryWithPicturesHandler).Name = "categoryPictures"
+
 	protected := e.Group("", checkAuth)
 	protected.Add(http.MethodGet, "/api/me", meHandler)
 	protected.Add(http.MethodPost, "/api/logout", logoutHandler).Name = "logout"
+
 	protected.Add(http.MethodPost, "/api/pictures", newPictureHandler).Name = "newPicture"
 	protected.Add(http.MethodPut, "/api/picture/:id/:action", pictureVisibilityHandler)
 	protected.Add(http.MethodPut, "/api/picture/:id", pictureUpdateHandler)
 	protected.Add(http.MethodDelete, "/api/picture/:id", pictureDeleteHandler)
+
+	protected.Add(http.MethodPut, "/api/category/:id", categoryUpdateHandler)
+	protected.Add(http.MethodDelete, "/api/category/:id", categoryDeleteHandler)
 }
 
 func loginHandler(c echo.Context) error {
@@ -67,7 +74,7 @@ func loginHandler(c echo.Context) error {
 		})
 	}
 
-	uwp := &UserWithPassword{User: *u}
+	uwp := &UserWithPassword{}
 	err = c.Bind(uwp)
 	if err != nil {
 		c.Logger().Warn("Error parsing creds:", err)
@@ -134,7 +141,7 @@ func picturesListHandler(c echo.Context) error {
 	u, _ := userFromSession(getSession(c))
 	withHidden := u.IsAnonymous == false
 	pl := &PicturesList{}
-	if err := pl.GetAll(withHidden); err != nil {
+	if err := pl.GetAll(withHidden, nil); err != nil {
 		return c.JSON(http.StatusInternalServerError, Response{Error: err.Error()})
 	}
 	return c.JSON(http.StatusOK, Response{Response: pl})
@@ -356,7 +363,7 @@ func categoryHandler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 
-	category := Tag{}
+	category := &Tag{}
 	err = category.LoadByID(id)
 	if err != nil {
 		return c.JSON(http.StatusNotFound, Response{Error: "Not found"})
@@ -367,11 +374,64 @@ func categoryHandler(c echo.Context) error {
 
 func categorySearchHandler(c echo.Context) error {
 	query := c.QueryParam("text")
-	categories := TagsList{}
+	categories := &TagsList{}
 	err := categories.LoadWithMatchingText(query)
 	if err != nil {
 		return c.JSON(http.StatusOK, Response{Response: []*Tag{}})
 	}
 
 	return c.JSON(http.StatusOK, Response{Response: categories})
+}
+
+func categoryUpdateHandler(c echo.Context) error {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+	}
+
+	t := &Tag{}
+	c.Bind(t)
+	c.Logger().Debugf("category body %v", t)
+
+	t.Id = id
+
+	if err := t.Update(); err != nil {
+		c.Logger().Error(err)
+		return c.JSON(http.StatusInternalServerError, Response{Error: err.Error()})
+	}
+
+	c.Response().WriteHeader(http.StatusNoContent)
+	return nil
+
+}
+
+func categoryDeleteHandler(c echo.Context) error {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+	}
+
+	t := &Tag{}
+	if err := t.DeleteByID(id); err != nil {
+		c.Logger().Error(err)
+		return c.JSON(http.StatusInternalServerError, Response{Error: err.Error()})
+	}
+
+	c.Response().WriteHeader(http.StatusNoContent)
+	return nil
+}
+
+func categoryWithPicturesHandler(c echo.Context) error {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+	}
+
+	t := &Tag{}
+	if err := t.LoadWithPictures(id); err != nil {
+		c.Logger().Error(err)
+		return c.JSON(http.StatusInternalServerError, Response{Error: err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, Response{Response: t})
 }
