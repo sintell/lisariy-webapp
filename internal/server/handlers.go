@@ -74,7 +74,7 @@ func loginHandler(c echo.Context) error {
 		})
 	}
 
-	uwp := &UserWithPassword{}
+	uwp := &UserWithPassword{User: *u}
 	err = c.Bind(uwp)
 	if err != nil {
 		c.Logger().Warn("Error parsing creds:", err)
@@ -89,10 +89,10 @@ func loginHandler(c echo.Context) error {
 		return c.JSON(http.StatusForbidden, Response{Error: "Bad credentials"})
 	}
 
-	u.IsAnonymous = false
-	u.Save()
+	c.Logger().Debugf("authed user data: %s", uwp)
+	setUserToSession(c, &uwp.User)
 
-	return c.JSON(http.StatusOK, Response{Response: u})
+	return c.JSON(http.StatusOK, Response{Response: &uwp.User})
 }
 
 func logoutHandler(c echo.Context) error {
