@@ -15,7 +15,6 @@ import (
 	"github.com/satori/go.uuid"
 
 	"github.com/labstack/echo"
-	"github.com/labstack/echo-contrib/session"
 )
 
 const (
@@ -67,7 +66,7 @@ func registerHandlers(e *echo.Echo, cfg *config.Config) {
 }
 
 func loginHandler(c echo.Context) error {
-	u, err := userFromSession(getSession(c))
+	u, err := userFromSession(c)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, struct{ Error string }{
 			"no user in session: " + err.Error(),
@@ -96,20 +95,19 @@ func loginHandler(c echo.Context) error {
 }
 
 func logoutHandler(c echo.Context) error {
-	sess := getSession(c)
-	u, err := userFromSession(sess)
+	u, err := userFromSession(c)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, Response{Error: "No user in session"})
 	}
 
 	u.IsAnonymous = true
 	u.Save()
-	sess.Save(c.Request(), c.Response())
+	getSession(c).Save(c.Request(), c.Response())
 	return nil
 }
 
 func meHandler(c echo.Context) error {
-	u, err := userFromSession(getSession(c))
+	u, err := userFromSession(c)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, Response{
 			Error: "no user in session",
@@ -120,7 +118,7 @@ func meHandler(c echo.Context) error {
 }
 
 func registerAdminHandler(c echo.Context) error {
-	u, _ := userFromSession(getSession(c))
+	u, _ := userFromSession(c)
 	uwp := &UserWithPassword{User: *u}
 	err := c.Bind(uwp)
 	if err != nil {
@@ -138,7 +136,7 @@ func registerAdminHandler(c echo.Context) error {
 }
 
 func picturesListHandler(c echo.Context) error {
-	u, _ := userFromSession(getSession(c))
+	u, _ := userFromSession(c)
 	withHidden := u.IsAnonymous == false
 	pl := &PicturesList{}
 	if err := pl.GetAll(withHidden, nil); err != nil {
@@ -327,11 +325,7 @@ func pictureDeleteHandler(c echo.Context) error {
 
 func checkAuth(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		sess, err := session.Get("session", c)
-		if err != nil {
-			return err
-		}
-		u, err := userFromSession(sess)
+		u, err := userFromSession(c)
 		if err != nil {
 			return c.JSON(http.StatusBadRequest, struct{ Error string }{
 				"no user in session",

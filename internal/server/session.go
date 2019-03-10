@@ -13,7 +13,8 @@ import (
 type sessionKeys string
 
 const (
-	KeyUser = "user"
+	KeyUser       = "user"
+	KeyAuthedUser = "authed-user"
 )
 
 func getSession(c echo.Context) *sessions.Session {
@@ -34,7 +35,10 @@ func setupSession(next echo.HandlerFunc) echo.HandlerFunc {
 		c.Logger().Debug("session values: %v", sess.Values)
 
 		if _, exists := sess.Values[KeyUser]; exists {
-			if _, err := userFromSession(sess); err == nil {
+			if u, err := userFromSession(c); err == nil {
+				if !u.IsAnonymous {
+					c.Set(KeyAuthedUser, &u)
+				}
 				return next(c)
 			}
 			c.Logger().Warnf("stale session: %v, will recreate", sess)
@@ -57,7 +61,12 @@ func setupSession(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-func userFromSession(s *sessions.Session) (*User, error) {
+func userFromSession(c echo.Context) (*User, error) {
+	if u, ok := c.Get(KeyAuthedUser).(User); ok {
+		return &u, nil
+	}
+
+	s := getSession(c)
 	if uid, exists := s.Values[KeyUser]; exists {
 		u := &User{}
 		if err := u.PopulateByID(uid.(int)); err != nil {

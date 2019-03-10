@@ -102,7 +102,8 @@ func (uwp *UserWithPassword) Authenticate() error {
 		return err
 	}
 
-	return nil
+	uwp.User.IsAnonymous = false
+	return uwp.User.Save()
 }
 
 type ImageSource struct {
